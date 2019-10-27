@@ -88,8 +88,67 @@ sudo mount -a
 sudo timeshift --snapshot-device $uuid
 sudo timeshift --create --comments "Fresh Install" --verbose
 
+# Add Internal and External Drives
+partlabel=Games
+getuuid "$partlabel"
+echo UUID="$uuid"
 
+chkdir /home/$USER/$partlabel
+cp /etc/fstab "$tmpdir"
+
+printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+
+partlabel=Downloads
+getuuid "$partlabel"
+echo UUID="$uuid"
+
+chkdir /home/$USER/$partlabel
+cp /etc/fstab "$tmpdir"
+
+printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+
+partlabel=Music
+getuuid "$partlabel"
+echo UUID="$uuid"
+
+chkdir /home/$USER/$partlabel
+cp /etc/fstab "$tmpdir"
+
+printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+
+partlabel=Pictures
+getuuid "$partlabel"
+echo UUID="$uuid"
+
+chkdir /home/$USER/$partlabel
+cp /etc/fstab "$tmpdir"
+
+printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+
+partlabel=Videos
+getuuid "$partlabel"
+echo UUID="$uuid"
+
+chkdir /home/$USER/$partlabel
+cp /etc/fstab "$tmpdir"
+
+printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+
+partlabel=VBoxVM
+getuuid "$partlabel"
+echo UUID="$uuid"
+
+chkdir /home/$USER/$partlabel
+cp /etc/fstab "$tmpdir"
+
+printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+
+# update mirrorlist with fastest mirrors
+sudo pacman-mirrors --fasttrack && sudo pacman -Syyu
+
+sudo pacman -Syu apcupsd bleachbit grsync gufw
 # Remove $tmpdir
 #rm -r "$tmpdir"
 popd
 #pwd
+echo "!!!Finished - Please reboot!!!"
