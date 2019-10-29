@@ -46,13 +46,15 @@ getuuid()
     sudo blkid > "$tmpdir/$fName"
     local Diskblkidline=`grep "$dsklabel" "$tmpdir/$fName"`
     echo Diskblkidline = "$Diskblkidline"
-    local startuuidpos=`expr index "$Diskblkidline" UUID`
+    local startuuidpos=`expr index "$Diskblkidline" U`
     uuid=`echo ${Diskblkidline:$startuuidpos+5:$lngthuuid}`
     
     #exit 0
 }
 
 # start of main script
+chkdir ~/Testing
+
 pushd ~/Testing
 pwd
 
@@ -65,19 +67,21 @@ chkdir "$tmpdir"
 find "$tmpdir" -mindepth 1 -delete
 # ls -la "$tmpdir/"
 
+chkdir /media root
+
 # Mount Ext USB Drive for Backups and timeshift
 partlabel=Backup
 getuuid "$partlabel"
 echo UUID="$uuid"
 
-chkdir /mnt/"$partlabel" root
+chkdir /media/"$partlabel" root
 cp /etc/fstab "$tmpdir"/
-#sudo chown -v steve:users /mnt/$partlabel
+sudo chown -v $USER:$USER /media/$partlabel
 #sudo chmod u+rwX,go+rX,go-w /mnt/$partlabel
 #ls -l /mnt/
 
 # write UUID for Backup disk to /etc/fstab
-printf "UUID=$uuid /mnt/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
 
 #echo "$USER before mount"
 sudo mount -a
@@ -93,60 +97,78 @@ partlabel=Games
 getuuid "$partlabel"
 echo UUID="$uuid"
 
-chkdir /home/$USER/$partlabel
+chkdir /media/$partlabel root
 cp /etc/fstab "$tmpdir"
 
-printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
 
 partlabel=Downloads
 getuuid "$partlabel"
 echo UUID="$uuid"
 
-chkdir /home/$USER/$partlabel
+chkdir /media$partlabel root
 cp /etc/fstab "$tmpdir"
 
-printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
 
 partlabel=Music
 getuuid "$partlabel"
 echo UUID="$uuid"
 
-chkdir /home/$USER/$partlabel
+chkdir /media/$partlabel root
 cp /etc/fstab "$tmpdir"
 
-printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
 
 partlabel=Pictures
 getuuid "$partlabel"
 echo UUID="$uuid"
 
-chkdir /home/$USER/$partlabel
+chkdir /media/$partlabel root
 cp /etc/fstab "$tmpdir"
 
-printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
 
 partlabel=Videos
 getuuid "$partlabel"
 echo UUID="$uuid"
 
-chkdir /home/$USER/$partlabel
+chkdir /media/$partlabel root
 cp /etc/fstab "$tmpdir"
 
-printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
 
 partlabel=VBoxVM
 getuuid "$partlabel"
 echo UUID="$uuid"
 
-chkdir /home/$USER/$partlabel
+chkdir /media/$partlabel root
 cp /etc/fstab "$tmpdir"
 
-printf "UUID=$uuid /home/$USER/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+
+# Download and upgrade
+sudo pacman -Syyu
 
 # update mirrorlist with fastest mirrors
 sudo pacman-mirrors --fasttrack && sudo pacman -Syyu
 
-sudo pacman -Syu apcupsd bleachbit grsync gufw
+sudo pacman -Syu apcupsd bleachbit calibre grsync gufw
+
+# set default  rules
+sudo ufw default allow outgoing
+sudo ufw default deny incoming
+
+# enable ufw
+sudo systemctl start ufw
+sudo systemctl enable ufw
+
+#Install python lib for GOGrepo
+sudo pacman -Syu python-html5lib python-html2text python-requests python-pyopenssl
+
+# Install printing support
+sudo  manjaro-printer
+
 # Remove $tmpdir
 #rm -r "$tmpdir"
 popd
