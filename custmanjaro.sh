@@ -5,6 +5,8 @@
 uuid=''
 tmpdir="/home/$USER/tmpInstall"
 partlabel=""
+dirNames=(Downloads Games Music Pictures Videos VBoxVM)
+
 
 chkdir()
 {
@@ -34,6 +36,18 @@ chkdir()
     
 }
 
+# Function to check and change ownership
+chkowner()
+{
+    local dirpath=$1
+    local curOwner=$(stat -c %U $dirpath)
+    
+    if [ $USER != $curOwner ]
+        then
+        sudo chown $USER $dirpath
+    fi
+}
+
 getuuid()
 {
     # get the disk UUID from a text file
@@ -51,6 +65,35 @@ getuuid()
     
     #exit 0
 }
+
+chklink()
+{
+local curdir=$1
+
+if [ -L $curdir ]
+then
+    printf "Directory $curdir is a symlink\n"
+    true
+    return
+else
+    printf "Directory $curdir is not a symlink\n"
+    false; return
+fi
+}
+
+removedir()
+{
+local dirtoremove=$1
+echo dirtoremove = $dirtoremove/
+rm -rf $dirtoremove
+}
+
+createsymlink()
+{
+local symlinktocreate=$1
+ln -s /media/$symlinktocreate/ /home/$USER/$symlinktocreate
+}
+
 
 # start of main script
 chkdir ~/Testing
@@ -76,7 +119,7 @@ echo UUID="$uuid"
 
 chkdir /media/"$partlabel" root
 cp /etc/fstab "$tmpdir"/
-sudo chown -v $USER:$USER /media/$partlabel
+chkowner /media/"$partlabel"
 #sudo chmod u+rwX,go+rX,go-w /mnt/$partlabel
 #ls -l /mnt/
 
@@ -87,26 +130,34 @@ printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /
 sudo mount -a
 #echo "$USER after mount"
 #ls -l /mnt
+# Delete existing timeshift Directory
+if [ -d /media/Backup/timeshift ]
+then
+    echo "Removing existing timeshift directory"
+    sudo rm -rf /media/Backup/timeshift
+fi
 
 # Create initial timeshift snapshot
 sudo timeshift --snapshot-device $uuid
 sudo timeshift --create --comments "Fresh Install" --verbose
 
 # Add Internal and External Drives
+partlabel=Downloads
+getuuid "$partlabel"
+echo UUID="$uuid"
+
+chkdir /media/$partlabel root
+chkowner /media/$partlabel
+cp /etc/fstab "$tmpdir"
+
+printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+
 partlabel=Games
 getuuid "$partlabel"
 echo UUID="$uuid"
 
 chkdir /media/$partlabel root
-cp /etc/fstab "$tmpdir"
-
-printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
-
-partlabel=Downloads
-getuuid "$partlabel"
-echo UUID="$uuid"
-
-chkdir /media$partlabel root
+chkowner /media/$partlabel
 cp /etc/fstab "$tmpdir"
 
 printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
@@ -116,6 +167,7 @@ getuuid "$partlabel"
 echo UUID="$uuid"
 
 chkdir /media/$partlabel root
+chkowner /media/$partlabel
 cp /etc/fstab "$tmpdir"
 
 printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
@@ -125,6 +177,7 @@ getuuid "$partlabel"
 echo UUID="$uuid"
 
 chkdir /media/$partlabel root
+chkowner /media/$partlabel
 cp /etc/fstab "$tmpdir"
 
 printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
@@ -134,6 +187,7 @@ getuuid "$partlabel"
 echo UUID="$uuid"
 
 chkdir /media/$partlabel root
+chkowner /media/$partlabel
 cp /etc/fstab "$tmpdir"
 
 printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
@@ -143,9 +197,33 @@ getuuid "$partlabel"
 echo UUID="$uuid"
 
 chkdir /media/$partlabel root
+chkowner /media/$partlabel
 cp /etc/fstab "$tmpdir"
 
 printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+
+
+sudo mount -a
+
+# Create symlinks for Home Directory
+
+for i in "${dirNames[@]}"
+do
+  {
+    chklink /home/$USER/"$i"
+    status=$?
+    echo status = $status
+
+        if [ "$status" -eq 1 ]
+        then
+        printf "Removing Directory /home/$USER/$i\n"
+        removedir /home/$USER/$i
+        printf "Creating symlink\n"
+        createsymlink $i
+        
+        fi
+    }
+done
 
 # Download and upgrade
 sudo pacman -Syyu
@@ -159,6 +237,9 @@ sudo pacman -Syu apcupsd bleachbit calibre grsync gufw
 sudo ufw default allow outgoing
 sudo ufw default deny incoming
 
+sudo ufw allow to 192.168.1.107
+sudo ufw allow from 192.168.1.107
+
 # enable ufw
 sudo systemctl start ufw
 sudo systemctl enable ufw
@@ -167,7 +248,11 @@ sudo systemctl enable ufw
 sudo pacman -Syu python-html5lib python-html2text python-requests python-pyopenssl
 
 # Install printing support
-sudo  manjaro-printer
+sudo  pacman -Syu manjaro-printer
+
+# Install VirtualBox
+pamac install virtualbox $(pacman -Qsq "^linux" | grep "^linux[0-9]*[-rt]*$" | awk '{print $1"-virtualbox-host-modules"}' ORS=' ')
+sudo gpasswd -a $USER vboxusers
 
 # Remove $tmpdir
 #rm -r "$tmpdir"
