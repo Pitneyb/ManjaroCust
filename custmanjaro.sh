@@ -94,6 +94,13 @@ local symlinktocreate=$1
 ln -s /media/$symlinktocreate/ /home/$USER/$symlinktocreate
 }
 
+addtofstab()
+{
+local drivepart=$1
+cp /etc/fstab $tmpdir/fstab-$drivepart
+
+printf "UUID=$uuid /media/$drivepart\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+}
 
 # start of main script
 chkdir ~/Testing
@@ -118,18 +125,15 @@ getuuid "$partlabel"
 echo UUID="$uuid"
 
 chkdir /media/"$partlabel" root
-cp /etc/fstab "$tmpdir"/
 chkowner /media/"$partlabel"
 #sudo chmod u+rwX,go+rX,go-w /mnt/$partlabel
 #ls -l /mnt/
 
 # write UUID for Backup disk to /etc/fstab
-printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
+addtofstab $partlabel
 
-#echo "$USER before mount"
 sudo mount -a
-#echo "$USER after mount"
-#ls -l /mnt
+
 # Delete existing timeshift Directory
 if [ -d /media/Backup/timeshift ]
 then
@@ -142,66 +146,20 @@ sudo timeshift --snapshot-device $uuid
 sudo timeshift --create --comments "Fresh Install" --verbose
 
 # Add Internal and External Drives
-partlabel=Downloads
-getuuid "$partlabel"
-echo UUID="$uuid"
-
-chkdir /media/$partlabel root
-chkowner /media/$partlabel
-cp /etc/fstab "$tmpdir"
-
-printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
-
-partlabel=Games
-getuuid "$partlabel"
-echo UUID="$uuid"
-
-chkdir /media/$partlabel root
-chkowner /media/$partlabel
-cp /etc/fstab "$tmpdir"
-
-printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
-
-partlabel=Music
-getuuid "$partlabel"
-echo UUID="$uuid"
-
-chkdir /media/$partlabel root
-chkowner /media/$partlabel
-cp /etc/fstab "$tmpdir"
-
-printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
-
-partlabel=Pictures
-getuuid "$partlabel"
-echo UUID="$uuid"
-
-chkdir /media/$partlabel root
-chkowner /media/$partlabel
-cp /etc/fstab "$tmpdir"
-
-printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
-
-partlabel=Videos
-getuuid "$partlabel"
-echo UUID="$uuid"
-
-chkdir /media/$partlabel root
-chkowner /media/$partlabel
-cp /etc/fstab "$tmpdir"
-
-printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
-
-partlabel=VBoxVM
-getuuid "$partlabel"
-echo UUID="$uuid"
-
-chkdir /media/$partlabel root
-chkowner /media/$partlabel
-cp /etc/fstab "$tmpdir"
-
-printf "UUID=$uuid /media/$partlabel\text4\trw,user,exec\t0 2\n" | sudo tee -a /etc/fstab
-
+for partlabel in "${dirNames[@]}"
+do
+{
+    echo "Drive = $partlabel"
+    getuuid $partlabel
+    echo "UUID for $partlabel = $uuid"
+    
+    chkdir /media/$partlabel root
+    chkowner /media/$partlabel
+    
+    # Add entry to /etc/fstab
+    addtofstab $partlabel
+}
+done
 
 sudo mount -a
 
@@ -229,30 +187,53 @@ done
 sudo pacman -Syyu
 
 # update mirrorlist with fastest mirrors
+echo "Update miiror list"
 sudo pacman-mirrors --fasttrack && sudo pacman -Syyu
 
-sudo pacman -Syu apcupsd bleachbit calibre grsync gufw
+sudo pacman -Syu apcupsd bleachbit calibre grsync gufw yay xsane
 
 # set default  rules
+echo "Setting ufw rules"
 sudo ufw default allow outgoing
 sudo ufw default deny incoming
-
+# rules for network printing
 sudo ufw allow to 192.168.1.107
 sudo ufw allow from 192.168.1.107
+# Rules for KDE Connect
+sudo ufw allow 1714:1764/udp
+sudo ufw allow 1714:1764/tcp
 
 # enable ufw
+echo "enable ufw"
 sudo systemctl start ufw
 sudo systemctl enable ufw
 
 #Install python lib for GOGrepo
+echo "Installing python Libraries"
 sudo pacman -Syu python-html5lib python-html2text python-requests python-pyopenssl
 
 # Install printing support
+echo "Installing printer support"
 sudo  pacman -Syu manjaro-printer
 
+# Install Extra Fonts
+echo "Installing extra fonts"
+pamac build fonts-tlwg 
+pamac build ttf-ms-fonts
+
 # Install VirtualBox
+echo "Installing Virtualbox"
 pamac install virtualbox $(pacman -Qsq "^linux" | grep "^linux[0-9]*[-rt]*$" | awk '{print $1"-virtualbox-host-modules"}' ORS=' ')
+pamac build virtualbox-ext-oracle
 sudo gpasswd -a $USER vboxusers
+
+# Install Wine
+echo "Installing Wine"
+sudo pacman -Syu wine-staging giflib lib32-giflib libpng lib32-libpng libldap lib32-libldap gnutls lib32-gnutls mpg123 lib32-mpg123 openal lib32-openal v4l-utils lib32-v4l-utils libpulse lib32-libpulse libgpg-error lib32-libgpg-error alsa-plugins lib32-alsa-plugins alsa-lib lib32-alsa-lib libjpeg-turbo lib32-libjpeg-turbo sqlite lib32-sqlite libxcomposite lib32-libxcomposite libxinerama lib32-libgcrypt libgcrypt lib32-libxinerama ncurses lib32-ncurses opencl-icd-loader lib32-opencl-icd-loader libxslt lib32-libxslt libva lib32-libva gtk3 lib32-gtk3 gst-plugins-base-libs lib32-gst-plugins-base-libs vulkan-icd-loader lib32-vulkan-icd-loader
+
+# Installing Lutris
+echo "Installing lutris"
+sudo pacman -Syu lutris
 
 # Remove $tmpdir
 #rm -r "$tmpdir"
